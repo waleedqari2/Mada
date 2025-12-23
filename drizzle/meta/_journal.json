@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1766502966890,
+      "tag": "0000_bent_dakota_north",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1766503151895,
+      "tag": "0001_skinny_rhodey",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1766505232348,
+      "tag": "0002_first_kid_colt",
+      "breakpoints": true
+    }
+  ]
+}
