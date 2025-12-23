@@ -2,8 +2,8 @@
 **/node_modules
 .pnpm-store/
 
-# Build outputs
-dist/
+# Build outputs (نسمح بـ dist مؤقتاً لرفع الـ build)
+# dist/        ← تم التعليق لأول deploy
 build/
 *.dist
 
