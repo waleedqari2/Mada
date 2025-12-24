@@ -1,17 +1,26 @@
-export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+// Environment variable handling with fallbacks for missing values
+export const VITE_OAUTH_PORTAL_URL = import.meta.env.VITE_OAUTH_PORTAL_URL || '';
+export const VITE_APP_ID = import.meta.env.VITE_APP_ID || '';
 
-// Generate login URL at runtime so redirect URI reflects the current origin.
-export const getLoginUrl = () => {
-  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
-  const appId = import.meta.env.VITE_APP_ID;
-  const redirectUri = `${window.location.origin}/api/oauth/callback`;
-  const state = btoa(redirectUri);
-
-  const url = new URL(`${oauthPortalUrl}/app-auth`);
-  url.searchParams.set("appId", appId);
-  url.searchParams.set("redirectUri", redirectUri);
-  url.searchParams.set("state", state);
-  url.searchParams.set("type", "signIn");
-
-  return url.toString();
+// Validation helper to check if required environment variables are set
+export const validateEnvironmentVariables = (): boolean => {
+  const missingVariables: string[] = [];
+  
+  if (!VITE_OAUTH_PORTAL_URL) {
+    missingVariables.push('VITE_OAUTH_PORTAL_URL');
+  }
+  
+  if (!VITE_APP_ID) {
+    missingVariables.push('VITE_APP_ID');
+  }
+  
+  if (missingVariables.length > 0) {
+    console.warn(
+      `Missing environment variables: ${missingVariables.join(', ')}. ` +
+      'Please ensure these are defined in your .env file.'
+    );
+    return false;
+  }
+  
+  return true;
 };
