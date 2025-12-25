@@ -130,6 +130,9 @@ importers:
       cookie:
         specifier: ^1.0.2
         version: 1.0.2
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
       crypto-js:
         specifier: ^4.2.0
         version: 4.2.0
@@ -257,9 +260,6 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.21(postcss@8.5.6)
-      cross-env:
-        specifier: ^7.0.3
-        version: 7.0.3
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.5

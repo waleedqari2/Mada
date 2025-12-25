@@ -11,6 +11,8 @@ interface HotelSearchResult {
   hotelName: string;
   price: number | null;
   available: boolean;
+  webBedsHotelId?: string; // WebBeds internal hotel ID
+  searchUrl?: string; // Dynamic search URL
 }
 
 interface SessionCookie {
@@ -123,7 +125,74 @@ export class PuppeteerScraper {
   }
 
   /**
-   * Search for hotel prices on a specific date
+   * Extract hotel ID from WebBeds search results
+   */
+  async extractHotelId(hotelName: string): Promise<string | null> {
+    if (!this.page) throw new Error("Page not initialized");
+
+    try {
+      console.log(`[Scraper] Extracting hotel ID for ${hotelName}...`);
+
+      // Get hotel ID from page URL or data attributes
+      const webBedsHotelId = await this.page.evaluate((name) => {
+        // Look for hotel links or elements with data-hotel-id
+        const hotelLinks = document.querySelectorAll('a[href*="/hotel-details/"]');
+        for (const link of Array.from(hotelLinks)) {
+          const href = link.getAttribute("href");
+          if (href && link.textContent?.includes(name)) {
+            const match = href.match(/\/hotel-details\/(\d+)/);
+            if (match) return match[1];
+          }
+        }
+
+        // Try alternative selectors
+        const hotelElements = document.querySelectorAll('[data-hotel-id]');
+        for (const element of Array.from(hotelElements)) {
+          if (element.textContent?.includes(name)) {
+            return element.getAttribute("data-hotel-id");
+          }
+        }
+
+        return null;
+      }, hotelName);
+
+      if (webBedsHotelId) {
+        console.log(`[Scraper] Found hotel ID: ${webBedsHotelId}`);
+      } else {
+        console.log(`[Scraper] Could not find hotel ID for ${hotelName}`);
+      }
+
+      return webBedsHotelId;
+    } catch (error) {
+      console.error(`[Scraper] Error extracting hotel ID:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Build dynamic WebBeds search URL
+   */
+  buildSearchUrl(
+    hotelId: string,
+    hotelName: string,
+    checkInDate: string, // Format: YYYY-MM-DD
+    checkOutDate: string, // Format: YYYY-MM-DD
+    nights: number = 1
+  ): string {
+    // Convert YYYY-MM-DD to DD/MM/YYYY for URL
+    const formatDateForUrl = (date: string) => {
+      const [year, month, day] = date.split("-");
+      return `${day}%2F${month}%2F${year}`;
+    };
+
+    const dateFromEncoded = formatDateForUrl(checkInDate);
+    const dateToEncoded = formatDateForUrl(checkOutDate);
+
+    return `https://www.dotwconnect.com/interface/en/accommodation/hotel-details/${hotelId}?destination=${encodeURIComponent(hotelName)}&PSearchId=${hotelId}&DateFrom=${dateFromEncoded}&dateFrom=${checkInDate}&DateTo=${dateToEncoded}&dateTo=${checkOutDate}&numberOfNights=${nights}&roomsNo=1&adultsCount%5B1%5D=2&childrenCount%5B1%5D=0`;
+  }
+
+  /**
+   * Search for hotel prices on a specific date with enhanced WebBeds integration
    */
   async searchHotelPrice(
     hotelName: string,
@@ -198,6 +267,9 @@ export class PuppeteerScraper {
       }
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      // Extract hotel ID for future use
+      const webBedsHotelId = await this.extractHotelId(hotelName);
+
       // Filter by hotel name
       const filterInput = await this.page.$('input[id="filterHotelByName"]');
       if (filterInput) {
@@ -231,19 +303,83 @@ export class PuppeteerScraper {
           hotelName: hotelName,
           price: null,
           available: false,
+          webBedsHotelId: webBedsHotelId || undefined,
         };
       }
 
       console.log(`[Scraper] Found price for ${hotelName}: ${hotelResult.price}`);
+
+      // Build dynamic search URL if we have the WebBeds hotel ID
+      let searchUrl: string | undefined;
+      if (webBedsHotelId) {
+        // Convert DD/MM/YYYY to YYYY-MM-DD
+        const convertDateFormat = (date: string) => {
+          const [day, month, year] = date.split("/");
+          return `${year}-${month}-${day}`;
+        };
+        
+        const checkInISO = convertDateFormat(checkInDate);
+        const checkOutISO = convertDateFormat(checkOutDate);
+        searchUrl = this.buildSearchUrl(webBedsHotelId, hotelName, checkInISO, checkOutISO, 1);
+        console.log(`[Scraper] Dynamic search URL: ${searchUrl}`);
+      }
 
       return {
         hotelId: hotelName.toLowerCase().replace(/\s+/g, "-"),
         hotelName: hotelName,
         price: hotelResult.price,
         available: true,
+        webBedsHotelId: webBedsHotelId || undefined,
+        searchUrl,
       };
     } catch (error) {
       console.error(`[Scraper] Error searching for ${hotelName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Navigate directly to hotel details using dynamic URL
+   */
+  async navigateToHotelDetails(searchUrl: string): Promise<number | null> {
+    if (!this.page) throw new Error("Page not initialized");
+
+    try {
+      console.log(`[Scraper] Navigating to hotel details: ${searchUrl}`);
+      
+      await this.page.goto(searchUrl, { waitUntil: "networkidle2" });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Extract price from hotel details page
+      const price = await this.page.evaluate(() => {
+        // Try multiple selectors for price
+        const priceSelectors = [
+          ".price-amount",
+          ".total-price",
+          "[data-price]",
+          ".room-price",
+        ];
+
+        for (const selector of priceSelectors) {
+          const element = document.querySelector(selector);
+          if (element) {
+            const priceText = element.textContent?.match(/\d+/)?.[0];
+            if (priceText) return parseInt(priceText);
+          }
+        }
+
+        return null;
+      });
+
+      if (price) {
+        console.log(`[Scraper] Extracted price from details page: ${price}`);
+      } else {
+        console.log(`[Scraper] Could not extract price from details page`);
+      }
+
+      return price;
+    } catch (error) {
+      console.error(`[Scraper] Error navigating to hotel details:`, error);
       return null;
     }
   }

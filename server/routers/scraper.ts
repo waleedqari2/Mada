@@ -113,6 +113,42 @@ export const scraperRouter = router({
   }),
 
   /**
+   * Add a new hotel
+   */
+  addHotel: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        hotelId: z.string().min(1),
+        city: z.string().default("Makkah"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Check if hotel already exists
+      const existing = await db
+        .select()
+        .from(hotels)
+        .where(eq(hotels.hotelId, input.hotelId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        throw new Error("Hotel already exists");
+      }
+
+      // Add hotel
+      await db.insert(hotels).values({
+        name: input.name,
+        hotelId: input.hotelId,
+        city: input.city,
+      });
+
+      return { success: true };
+    }),
+
+  /**
    * Get price history for a specific hotel and date range
    */
   getPriceHistory: protectedProcedure
