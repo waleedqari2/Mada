@@ -24,3 +24,12 @@ export const validateEnvironmentVariables = (): boolean => {
   
   return true;
 };
+
+// Get OAuth login URL
+export const getLoginUrl = (): string => {
+  if (!VITE_OAUTH_PORTAL_URL || !VITE_APP_ID) {
+    console.warn('OAuth configuration is missing. Using default login URL.');
+    return '/';
+  }
+  return `${VITE_OAUTH_PORTAL_URL}/login?appId=${VITE_APP_ID}`;
+};
